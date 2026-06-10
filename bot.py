@@ -200,8 +200,83 @@ async def convert(interaction: discord.Interaction, file: discord.Attachment):
             if os.path.exists(path):
                 os.remove(path)
 
+# mp4 -> gif
 
-# ==================== 봇 시작 ====================
+async def convert_mp4_to_gif(input_path: str, output_path: str, fps: int, scale: int) -> tuple[bool, str]:
+    try:
+        scale_filter = f"scale=iw*{scale}/100:-1"
+        cmd = (
+            f'ffmpeg -i "{input_path}" '
+            f'-vf "{scale_filter},fps={fps},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" '
+            f'"{output_path}" -y -loglevel quiet'
+        )
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: os.system(cmd))
+ 
+        if os.path.exists(output_path):
+            return True, output_path
+        return False, "변환 실패. 입력 파일을 확인해봐"
+    except Exception as e:
+        return False, str(e)
+ 
+ 
+# /togif 커맨드
+@bot.tree.command(name="togif", description="mp4 -> gif")
+@app_commands.describe(
+    file="변환할 mp4 파일 첨부",
+    fps="GIF 프레임레이트 (기본값: 15, 권장: 10~30)",
+    scale="원본 대비 크기 %"
+)
+async def togif(
+    interaction: discord.Interaction,
+    file: discord.Attachment,
+    fps: app_commands.Range[int, 1, 60] = 15,
+    scale: app_commands.Range[int, 1, 100] = 100
+):
+    await interaction.response.defer(thinking=True)
+ 
+    if not file.filename.lower().endswith(".mp4"):
+        await interaction.followup.send("mp4 파일만 첨부 가능함")
+        return
+ 
+    if file.size > MAX_FILE_SIZE:
+        await interaction.followup.send(f"파일이 너무 큼 ({file.size // (1024*1024)}MB);")
+        return
+ 
+    await interaction.followup.send(f"GIF 변환 중... (fps: {fps}, scale: {scale}%)")
+ 
+    input_path = os.path.join(TEMP_DIR, f"gif_in_{interaction.id}.mp4")
+    output_path = os.path.join(TEMP_DIR, f"gif_out_{interaction.id}.gif")
+ 
+    try:
+        await file.save(input_path)
+        success, result = await convert_mp4_to_gif(input_path, output_path, fps, scale)
+ 
+        if not success:
+            await interaction.edit_original_response(content=f"변환 실패 \n```{result}```")
+            return
+ 
+        out_size = os.path.getsize(output_path)
+        if out_size > MAX_FILE_SIZE:
+            await interaction.edit_original_response(
+                content=f"변환된 GIF가 너무 큼 ({out_size // (1024*1024)}MB) scale이나 fps를 줄여봐"
+            )
+            return
+ 
+        await interaction.edit_original_response(
+            content=f"GIF 변환 완료! (fps: {fps}, scale: {scale}%)",
+            attachments=[discord.File(output_path, filename="converted.gif")]
+        )
+ 
+    except Exception as e:
+        await interaction.edit_original_response(content=f"오류 발생 \n```{e}```")
+    finally:
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
+ 
+
+# ==================== 봇 시작 =======================
 @bot.event
 async def on_ready():
     await bot.tree.sync()
