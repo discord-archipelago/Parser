@@ -383,7 +383,7 @@ async def ctx_download_mp3(interaction: discord.Interaction, message: discord.Me
             os.remove(result)
  
  
-# ==================== 컨텍스트 메뉴: MP4로 다운로드 ====================
+# 컨텍스트 메뉴 - MP4로 다운로드
 @bot.tree.context_menu(name="MP4로 다운로드")
 async def ctx_download_mp4(interaction: discord.Interaction, message: discord.Message):
     await interaction.response.defer(thinking=True, ephemeral=True)
@@ -422,7 +422,7 @@ async def ctx_download_mp4(interaction: discord.Interaction, message: discord.Me
             os.remove(result)
  
  
-# ==================== 컨텍스트 메뉴: MP4 → MP3 변환 ====================
+# 컨텍스트 메뉴 - MP4 → MP3 변환
 @bot.tree.context_menu(name="MP4 → MP3 변환")
 async def ctx_convert_mp3(interaction: discord.Interaction, message: discord.Message):
     await interaction.response.defer(thinking=True, ephemeral=True)
@@ -436,7 +436,7 @@ async def ctx_convert_mp3(interaction: discord.Interaction, message: discord.Mes
         await interaction.followup.send(f" 파일이 너무 큼 ({mp4_file.size // (1024*1024)}MB) :/", ephemeral=True)
         return
  
-    await interaction.followup.send("🔄 변환 중... ", ephemeral=True)
+    await interaction.followup.send(" 변환 중... ", ephemeral=True)
     input_path = os.path.join(TEMP_DIR, f"ctx_conv_in_{interaction.id}.mp4")
     output_path = os.path.join(TEMP_DIR, f"ctx_conv_out_{interaction.id}.mp3")
  
@@ -463,7 +463,7 @@ async def ctx_convert_mp3(interaction: discord.Interaction, message: discord.Mes
                 os.remove(path)
  
  
-# ==================== 컨텍스트 메뉴: MP4 → GIF 변환 ====================
+#  컨텍스트 메뉴 -  MP4 → GIF 변환
 @bot.tree.context_menu(name="MP4 → GIF 변환")
 async def ctx_convert_gif(interaction: discord.Interaction, message: discord.Message):
     await interaction.response.defer(thinking=True, ephemeral=True)
