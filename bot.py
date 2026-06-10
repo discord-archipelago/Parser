@@ -335,3 +335,220 @@ async def on_ready():
 
 
 bot.run(TOKEN)
+
+
+ 
+# URL 추출 헬퍼
+def extract_url(text: str) -> str | None:
+    match = re.search(r'https?://\S+', text)
+    return match.group(0) if match else None
+ 
+ 
+# 컨텍스트 메뉴 - MP3 다운로드
+@bot.tree.context_menu(name="MP3로 다운로드")
+async def ctx_download_mp3(interaction: discord.Interaction, message: discord.Message):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+ 
+    url = extract_url(message.content)
+    if not url:
+        await interaction.followup.send(" 메시지에서 링크를 찾을 수 없음 :/", ephemeral=True)
+        return
+ 
+    site = detect_site(url)
+    if site == "unknown":
+        await interaction.followup.send(" 지원하지 않는 링크야. 유튜브, 트위터(X), 핀터레스트만 됨 :/", ephemeral=True)
+        return
+ 
+    await interaction.followup.send(f"🎵 MP3 다운로드 중... ", ephemeral=True)
+    output_base = os.path.join(TEMP_DIR, f"ctx_mp3_{interaction.id}")
+    success, result = await download_media(url, "mp3", output_base)
+ 
+    if not success:
+        await interaction.edit_original_response(content=f" 다운로드 실패 :(\n```{result}```")
+        return
+ 
+    file_size = os.path.getsize(result)
+    if file_size > MAX_FILE_SIZE:
+        os.remove(result)
+        await interaction.edit_original_response(content=f" 파일이 너무 큼 ({file_size // (1024*1024)}MB) :/")
+        return
+ 
+    try:
+        await interaction.edit_original_response(
+            content=" 다운로드 완료!",
+            attachments=[discord.File(result, filename="download.mp3")]
+        )
+    finally:
+        if os.path.exists(result):
+            os.remove(result)
+ 
+ 
+# ==================== 컨텍스트 메뉴: MP4로 다운로드 ====================
+@bot.tree.context_menu(name="MP4로 다운로드")
+async def ctx_download_mp4(interaction: discord.Interaction, message: discord.Message):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+ 
+    url = extract_url(message.content)
+    if not url:
+        await interaction.followup.send(" 메시지에서 링크를 찾을 수 없음 :/", ephemeral=True)
+        return
+ 
+    site = detect_site(url)
+    if site == "unknown":
+        await interaction.followup.send(" 지원하지 않는 링크야. 유튜브, 트위터(X), 핀터레스트만 됨 :/", ephemeral=True)
+        return
+ 
+    await interaction.followup.send(f" MP4 다운로드 중... ", ephemeral=True)
+    output_base = os.path.join(TEMP_DIR, f"ctx_mp4_{interaction.id}")
+    success, result = await download_media(url, "mp4", output_base)
+ 
+    if not success:
+        await interaction.edit_original_response(content=f" 다운로드 실패 :(\n```{result}```")
+        return
+ 
+    file_size = os.path.getsize(result)
+    if file_size > MAX_FILE_SIZE:
+        os.remove(result)
+        await interaction.edit_original_response(content=f" 파일이 너무 큼 ({file_size // (1024*1024)}MB) :/")
+        return
+ 
+    try:
+        await interaction.edit_original_response(
+            content=" 다운로드 완료!",
+            attachments=[discord.File(result, filename="download.mp4")]
+        )
+    finally:
+        if os.path.exists(result):
+            os.remove(result)
+ 
+ 
+# ==================== 컨텍스트 메뉴: MP4 → MP3 변환 ====================
+@bot.tree.context_menu(name="MP4 → MP3 변환")
+async def ctx_convert_mp3(interaction: discord.Interaction, message: discord.Message):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+ 
+    mp4_file = next((a for a in message.attachments if a.filename.lower().endswith(".mp4")), None)
+    if not mp4_file:
+        await interaction.followup.send(" mp4 첨부파일이 없음 :/", ephemeral=True)
+        return
+ 
+    if mp4_file.size > MAX_FILE_SIZE:
+        await interaction.followup.send(f" 파일이 너무 큼 ({mp4_file.size // (1024*1024)}MB) :/", ephemeral=True)
+        return
+ 
+    await interaction.followup.send("🔄 변환 중... ", ephemeral=True)
+    input_path = os.path.join(TEMP_DIR, f"ctx_conv_in_{interaction.id}.mp4")
+    output_path = os.path.join(TEMP_DIR, f"ctx_conv_out_{interaction.id}.mp3")
+ 
+    try:
+        await mp4_file.save(input_path)
+        success, result = await convert_mp4_to_mp3(input_path, output_path)
+ 
+        if not success:
+            await interaction.edit_original_response(content=f" 변환 실패 :(\n```{result}```")
+            return
+ 
+        out_size = os.path.getsize(output_path)
+        if out_size > MAX_FILE_SIZE:
+            await interaction.edit_original_response(content=" 변환된 파일이 너무 큼 :/")
+            return
+ 
+        await interaction.edit_original_response(
+            content=" 변환 완료!",
+            attachments=[discord.File(output_path, filename="converted.mp3")]
+        )
+    finally:
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
+ 
+ 
+# ==================== 컨텍스트 메뉴: MP4 → GIF 변환 ====================
+@bot.tree.context_menu(name="MP4 → GIF 변환")
+async def ctx_convert_gif(interaction: discord.Interaction, message: discord.Message):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+ 
+    mp4_file = next((a for a in message.attachments if a.filename.lower().endswith(".mp4")), None)
+    if not mp4_file:
+        await interaction.followup.send(" mp4 첨부파일이 없음 ", ephemeral=True)
+        return
+ 
+    if mp4_file.size > MAX_FILE_SIZE:
+        await interaction.followup.send(f" 파일이 너무 큼 ({mp4_file.size // (1024*1024)}MB) ", ephemeral=True)
+        return
+ 
+    await interaction.followup.send(" GIF 변환 중... (fps: 15, scale: 100%) ", ephemeral=True)
+    input_path = os.path.join(TEMP_DIR, f"ctx_gif_in_{interaction.id}.mp4")
+    output_path = os.path.join(TEMP_DIR, f"ctx_gif_out_{interaction.id}.gif")
+ 
+    try:
+        await mp4_file.save(input_path)
+        success, result = await convert_mp4_to_gif(input_path, output_path, fps=15, scale=100)
+ 
+        if not success:
+            await interaction.edit_original_response(content=f" 변환 실패 \n```{result}```")
+            return
+ 
+        out_size = os.path.getsize(output_path)
+        if out_size > MAX_FILE_SIZE:
+            await interaction.edit_original_response(
+                content=f" GIF가 너무 큼 ({out_size // (1024*1024)}MB) /togif 으로 scale 줄여봐"
+            )
+            return
+ 
+        await interaction.edit_original_response(
+            content=" GIF 변환 완료!",
+            attachments=[discord.File(output_path, filename="converted.gif")]
+        )
+    finally:
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
+ 
+ 
+# 컨텍스트 메뉴 : 이미지 → GIF 변환
+@bot.tree.context_menu(name="이미지 → GIF 변환")
+async def ctx_imgtogif(interaction: discord.Interaction, message: discord.Message):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+ 
+    allowed_exts = (".png", ".jpg", ".jpeg", ".webp")
+    img_file = next((a for a in message.attachments if a.filename.lower().endswith(allowed_exts)), None)
+    if not img_file:
+        await interaction.followup.send(" png, jpg, jpeg, webp 첨부파일이 없음 ", ephemeral=True)
+        return
+ 
+    if img_file.size > MAX_FILE_SIZE:
+        await interaction.followup.send(f" 파일이 너무 큼 ({img_file.size // (1024*1024)}MB) ", ephemeral=True)
+        return
+ 
+    await interaction.followup.send(" GIF 변환 중... ", ephemeral=True)
+    ext = os.path.splitext(img_file.filename.lower())[1]
+    input_path = os.path.join(TEMP_DIR, f"ctx_img_in_{interaction.id}{ext}")
+    output_path = os.path.join(TEMP_DIR, f"ctx_img_out_{interaction.id}.gif")
+ 
+    try:
+        await img_file.save(input_path)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: os.system(f'ffmpeg -i "{input_path}" "{output_path}" -y -loglevel quiet')
+        )
+ 
+        if not os.path.exists(output_path):
+            await interaction.edit_original_response(content=" 변환 실패. 파일을 확인해봐")
+            return
+ 
+        out_size = os.path.getsize(output_path)
+        if out_size > MAX_FILE_SIZE:
+            await interaction.edit_original_response(content=f" 변환된 GIF가 너무 큼 ({out_size // (1024*1024)}MB) ")
+            return
+ 
+        await interaction.edit_original_response(
+            content=" 변환 완료!",
+            attachments=[discord.File(output_path, filename="converted.gif")]
+        )
+    finally:
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
+ 
