@@ -334,9 +334,6 @@ async def on_ready():
     print(f"슬래시 커맨드 동기화 완료")
 
 
-bot.run(TOKEN)
-
-
  
 # URL 추출 헬퍼
 def extract_url(text: str) -> str | None:
@@ -552,3 +549,6 @@ async def ctx_imgtogif(interaction: discord.Interaction, message: discord.Messag
             if os.path.exists(path):
                 os.remove(path)
  
+
+
+ bot.run(TOKEN)
