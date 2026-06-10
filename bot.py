@@ -240,7 +240,7 @@ async def togif(
         return
  
     if file.size > MAX_FILE_SIZE:
-        await interaction.followup.send(f"파일이 너무 큼 ({file.size // (1024*1024)}MB);")
+        await interaction.followup.send(f"파일이 너무 큼 ({file.size // (1024*1024)}MB)")
         return
  
     await interaction.followup.send(f"GIF 변환 중... (fps: {fps}, scale: {scale}%)")
@@ -275,7 +275,57 @@ async def togif(
             if os.path.exists(path):
                 os.remove(path)
  
-
+# /imgtogif 커맨드
+@bot.tree.command(name="imgtogif", description="이미지(png/jpg/webp)를 gif로 변환")
+@app_commands.describe(file="변환할 이미지 파일 첨부 (png, jpg, jpeg, webp)")
+async def imgtogif(interaction: discord.Interaction, file: discord.Attachment):
+    await interaction.response.defer(thinking=True)
+ 
+    allowed_exts = (".png", ".jpg", ".jpeg", ".webp")
+    if not file.filename.lower().endswith(allowed_exts):
+        await interaction.followup.send(" png, jpg, jpeg, webp 파일만 가능함 ")
+        return
+ 
+    if file.size > MAX_FILE_SIZE:
+        await interaction.followup.send(f" 파일이 너무 큼 ({file.size // (1024*1024)}MB) ")
+        return
+ 
+    await interaction.followup.send(" GIF 변환 중...")
+ 
+    ext = os.path.splitext(file.filename.lower())[1]
+    input_path = os.path.join(TEMP_DIR, f"imgtogif_in_{interaction.id}{ext}")
+    output_path = os.path.join(TEMP_DIR, f"imgtogif_out_{interaction.id}.gif")
+ 
+    try:
+        await file.save(input_path)
+ 
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: os.system(f'ffmpeg -i "{input_path}" "{output_path}" -y -loglevel quiet')
+        )
+ 
+        if not os.path.exists(output_path):
+            await interaction.edit_original_response(content="변환 실패. 파일을 확인해봐")
+            return
+ 
+        out_size = os.path.getsize(output_path)
+        if out_size > MAX_FILE_SIZE:
+            await interaction.edit_original_response(content=f"변환된 GIF가 너무 큼 ({out_size // (1024*1024)}MB)")
+ 
+        await interaction.edit_original_response(
+            content="변환 완료!",
+            attachments=[discord.File(output_path, filename="converted.gif")]
+        )
+ 
+    except Exception as e:
+        await interaction.edit_original_response(content=f"오류 발생 \n```{e}```")
+    finally:
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
+ 
+ 
 # ==================== 봇 시작 =======================
 @bot.event
 async def on_ready():
