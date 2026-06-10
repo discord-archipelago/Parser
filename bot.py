@@ -325,14 +325,6 @@ async def imgtogif(interaction: discord.Interaction, file: discord.Attachment):
             if os.path.exists(path):
                 os.remove(path)
  
- 
-# ==================== 봇 시작 =======================
-@bot.event
-async def on_ready():
-    await bot.tree.sync()
-    print(f" {bot.user} 로그인 완료!")
-    print(f"슬래시 커맨드 동기화 완료")
-
 
  
 # URL 추출 헬퍼
@@ -550,5 +542,11 @@ async def ctx_imgtogif(interaction: discord.Interaction, message: discord.Messag
                 os.remove(path)
  
 
+# 봇 시작
 
- bot.run(TOKEN)
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f" {bot.user} 로그인 완료!")
+    print(f"슬래시 커맨드 동기화 완료")
+bot.run(TOKEN)
