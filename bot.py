@@ -542,11 +542,13 @@ async def ctx_imgtogif(interaction: discord.Interaction, message: discord.Messag
                 os.remove(path)
  
 
-# 봇 시작
-
+# 봇 시작python
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
-    print(f" {bot.user} 로그인 완료!")
+    guild = discord.Object(id=968838157116276797)  # 서버 ID
+    bot.tree.copy_global_to(guild=guild)
+    await bot.tree.sync(guild=guild)
+    print(f"✅ {bot.user} 로그인 완료!")
     print(f"슬래시 커맨드 동기화 완료")
+
 bot.run(TOKEN)
